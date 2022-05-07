@@ -52,6 +52,7 @@ public class OlympicDBAccess {
                     + "olympicID INT,"
                     + "eventID INT,"
                     + "athleteID INT,"
+                    + "medalColour VARCHAR(7),"
                     + "PRIMARY KEY (ID),"
                     + "FOREIGN KEY (olympicID) REFERENCES OLYMPICS(ID),"
                     + "FOREIGN KEY (eventID) REFERENCES EVENTS(ID),"
@@ -84,7 +85,7 @@ public class OlympicDBAccess {
         populateOlympics();
         populateEvents();
         populateAthletes();
-
+        populateMedals();
         //this should be the last line in this method
         System.out.println("Time to populate: " + (System.currentTimeMillis() - time) + "ms");
     }
@@ -141,15 +142,86 @@ public class OlympicDBAccess {
         }
     }
     public void populateMedals() {
+        int batchSize = 20;
+        int athleteID = 0;
+        int olympicID = 0;
+        int eventID = 0;
+        try {
+            Connection con = DriverManager.getConnection(URL,user,pass);
+            Statement stmt = con.createStatement();
+            String sql = "INSERT INTO MEDALS (olympicID, eventID, athleteID, medalColour) VALUES (?, ?, ?, ?)";
+            PreparedStatement statement = con.prepareStatement(sql);
+
+            BufferedReader lineReader = new BufferedReader(new FileReader("medals.csv"));
+            String lineText = null;
+
+            int count = 0;
+
+            lineReader.readLine(); // skip header li
+            while ((lineText = lineReader.readLine()) != null) {
+                count++;
+                String[] data = lineText.split(",");
+                String name = data[0];
+                String gender = data[1];
+                String noc = data[2];
+                String year = data[3];
+                String season = data[4];
+                String city = data[5];
+                String sport = data[6];
+                String event = data[7];
+                String medal = data[8];
+                String fixedMedal = medal.replaceAll("\"","");
+                ResultSet athleteSearch = stmt.executeQuery("SELECT ID FROM ATHLETES WHERE name=" + name + " AND gender=" + gender +
+                        " AND noc=" + noc + ";");
+                while (athleteSearch.next()) {
+                    athleteID = athleteSearch.getInt("ID");
+                }
+                ResultSet olympicSearch = stmt.executeQuery("SELECT ID FROM OLYMPICS WHERE year=" + year + " AND season=" + season +
+                        " AND city=" + city + ";");
+                while (olympicSearch.next()) {
+                    olympicID = olympicSearch.getInt("ID");
+                }
+                ResultSet eventSearch = stmt.executeQuery("SELECT ID FROM EVENTS WHERE sport=" + sport + "AND event=" + event + ";");
+                while (eventSearch.next()) {
+                    eventID = eventSearch.getInt("ID");
+                }
+                statement.setInt(1, olympicID);
+                statement.setInt(2, eventID);
+                statement.setInt(3, athleteID);
+                statement.setString(4, fixedMedal);
+                statement.addBatch();
+                if (count % batchSize == 0) {
+                    statement.executeBatch();
+                }
+            }
+            lineReader.close();
+
+            // execute the remaining queries
+            statement.executeBatch();
+            con.close();
+            } catch (SQLException ex) {
+            ex.printStackTrace();
+        } catch (FileNotFoundException ex) {
+            ex.printStackTrace();
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
+    }
+    public void runQueries() {
+        System.out.println("1. "); //number of distinct events that have the sport athletics
+        try {
+            Connection con = DriverManager.getConnection(URL,user,pass);
+            Statement stmt = con.createStatement();
+            ResultSet question1 = stmt.executeQuery("SELECT sport,COUNT(DISTINCT(event)) " +
+                    "FROM EVENTS " +
+                    "GROUP BY sport HAVING \"athletics\";");
+
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
 
 
     }
-
-
-        public void runQueries() {
-
-    }
-
-
 }
 
